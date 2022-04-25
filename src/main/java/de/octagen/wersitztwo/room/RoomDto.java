@@ -1,8 +1,7 @@
-package de.octagen.wersitztwo;
+package de.octagen.wersitztwo.room;
 
-import lombok.AllArgsConstructor;
+import de.octagen.wersitztwo.person.PersonDto;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 import java.util.Set;

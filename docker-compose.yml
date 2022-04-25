@@ -1,0 +1,19 @@
+version: "1"
+services:
+  docker-mysql:
+    image: mysql:5.7
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD= true
+      - MYSQL_DATABASE=wer_sitzt_wo_db
+    ports:
+      - '3306:3306'
+  wer-sitzt-wo:
+    build: ./
+    container_name: wer-sitzt-wo
+    ports:
+      - '8080:8080'
+    image: wer-sitzt-wo:latest
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://docker-mysql:3306/database?autoReconnect=true&useSSL=false
+    depends_on:
+      - docker-mysql

@@ -1,4 +1,4 @@
-package de.octagen.wersitztwo;
+package de.octagen.wersitztwo.person;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
