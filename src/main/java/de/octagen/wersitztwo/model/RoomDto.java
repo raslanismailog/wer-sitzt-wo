@@ -1,6 +1,6 @@
-package de.octagen.wersitztwo.room;
+package de.octagen.wersitztwo.model;
 
-import de.octagen.wersitztwo.person.PersonDto;
+import de.octagen.wersitztwo.model.PersonDto;
 import lombok.Data;
 
 import java.io.Serializable;

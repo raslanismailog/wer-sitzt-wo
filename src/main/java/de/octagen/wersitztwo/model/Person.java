@@ -1,6 +1,5 @@
-package de.octagen.wersitztwo.person;
+package de.octagen.wersitztwo.model;
 
-import de.octagen.wersitztwo.room.Room;
 import lombok.*;
 import javax.persistence.*;
 
@@ -28,9 +27,5 @@ public class Person {
 
     @Column(name = "ldap_user", length = 60)
     private String ldapUser = "";
-
-    @ManyToOne
-    @JoinColumn(name = "room_id", referencedColumnName = "room_id", nullable = false)
-    private Room room;
 
 }

@@ -14,6 +14,11 @@ services:
       - '8080:8080'
     image: wer-sitzt-wo:latest
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://docker-mysql:3306/database?autoReconnect=true&useSSL=false
+      SPRING_DATASOURCE_URL: jdbc:mysql://docker-mysql:3306/wer_sitzt_wo_db?autoReconnect=true&useSSL=false
+      DLL_AUTO: update
+      MYSQL_DB_USERNAME: root
+      MYSQL_DB_PASSWORD:
+      DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
+      SQL_DIALECT: com.mysql.cj.jdbc.Driver
     depends_on:
       - docker-mysql

@@ -1,4 +1,4 @@
-package de.octagen.wersitztwo.person;
+package de.octagen.wersitztwo.model;
 
 import lombok.Data;
 
