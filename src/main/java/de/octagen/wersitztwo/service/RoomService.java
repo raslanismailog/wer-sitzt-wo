@@ -1,148 +1,87 @@
 package de.octagen.wersitztwo.service;
 
+import de.octagen.wersitztwo.exception.DuplicateResidentException;
+import de.octagen.wersitztwo.exception.DuplicateRoomException;
+import de.octagen.wersitztwo.exception.RoomNumberNotFourDigitsException;
 import de.octagen.wersitztwo.model.Person;
-import de.octagen.wersitztwo.model.PersonDto;
 import de.octagen.wersitztwo.model.Room;
-import de.octagen.wersitztwo.model.RoomDto;
 import de.octagen.wersitztwo.repository.PersonRepository;
 import de.octagen.wersitztwo.repository.RoomRepository;
 import lombok.Data;
-import org.springframework.beans.BeanUtils;
+import lombok.Value;
 import org.springframework.stereotype.Service;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import javax.management.relation.RoleInfoNotFoundException;
 import java.util.*;
 
 @Data
 @Service
 public class RoomService {
 
-    private final RoomRepository roomRepo;
-    private final PersonRepository personRepo;
     private final List<String> nameAdditions = new ArrayList<>(Arrays.asList("van", "von", "de"));
 
-    public RoomService(RoomRepository roomRepo, PersonRepository personRepo) {
-        this.roomRepo = roomRepo;
-        this.personRepo = personRepo;
-    }
+    private final RoomRepository roomRepository;
+    private final PersonRepository personRepository;
 
-    public List<String> csvFileToList(String filePath) throws IOException {
-        List<String> data = new ArrayList<>();
+    public RoomService(RoomRepository roomRepository, PersonRepository personRepository) {
 
-        Path path = Paths.get(filePath);
-        String fileName = new File(String.valueOf(path)).getName();
-        if (Files.exists(path) && fileName.endsWith("csv")) {
-            BufferedReader br = new BufferedReader(new FileReader(filePath));
-            data.addAll(br.lines().toList());
-        }
+        this.roomRepository = roomRepository;
+        this.personRepository = personRepository;
 
-        return data;
-    }
-
-    public List<Room> addRoomsToDb(List<Room> rooms) {
-
-        if (rooms != null && !rooms.isEmpty()) {
-
-            roomRepo.saveAll(rooms);
-
-            rooms.stream().filter(room -> room != null && !room.getPeople().isEmpty()).forEach(room -> {
-                try {
-                    personRepo.saveAll(room.getPeople());
-                } catch (NullPointerException e) {
-                    System.out.println(e.getMessage());
-                }
-            });
-
-        }
-
-        return rooms;
     }
 
 
-    public List<RoomDto> convertToDto(List<Room> rooms) {
-        List<RoomDto> roomDtos = new ArrayList<>();
-
-        rooms.forEach(room -> {
-            roomDtos.add(this.getRoomDto(room));
-        });
-
-        return roomDtos;
+    private static LinkedList<String> parseCsvLine(String line) {
+        return new LinkedList<>(Arrays.stream(line.split(",")).toList());
     }
 
-    public RoomDto getRoomDto(Room room) {
-        RoomDto roomDto = new RoomDto();
-        BeanUtils.copyProperties(room, roomDto);
-        Set<PersonDto> people = new LinkedHashSet<>();
+    public void addRoomsToDb(List<String> list) {
+        List<LinkedList<String>> roomData = list.stream().map(RoomService::parseCsvLine).toList();
+        Set<Integer> roomNr = new HashSet<>();
+        Set<String> ldapUser = new HashSet<>();
+        roomData.forEach(record -> {
+            List<Person> people = new ArrayList<>();
+            Room room = new Room(Integer.parseInt(record.get(0)));
 
-        room.getPeople().forEach(person -> {
-            PersonDto personDto = new PersonDto();
-            BeanUtils.copyProperties(person, personDto);
-            people.add(personDto);
-        });
-
-        roomDto.setPeople(people);
-        return roomDto;
-    }
-
-    public List<Room> getAllRooms(String filePath) throws IOException {
-        List<String> data = csvFileToList(filePath);
-        List<Room> rooms = new ArrayList<>();
-        data.forEach(s -> { //TODO: rename
-            if (!s.isEmpty()) {
-                String[] record = s.trim().split(",");
-                Room room = new Room(Integer.parseInt(record[0]));
-                List<Room> rooms1 = data.stream().map(line -> new Room(Integer.parseInt(Arrays.stream(line.trim().split(",")).toList().get(0)))).toList();
-                List <Person> people = new LinkedList<>();
-
-                for (int i = 1; i < record.length; i++) {
-                    Person person = new Person();
-                    if (!record[i].isEmpty()) {
-                        List<String> token = new ArrayList<>(Arrays.stream(record[i].trim().split(" ")).toList());
-                        this.setPerson(token, person);
-                        people.add(person);
-                    }
-                    room.setPeople(people);
-                }
-                rooms.add(room);
+            if (room.getRoom().toString().length() != 4) {
+                System.out.println(room.getRoom().toString().length());
+                throw new RoomNumberNotFourDigitsException("Room number: " + record.get(0) + " is not four digits");
             }
+
+            if (!roomNr.add(room.getRoom()) || roomRepository.findAll().contains(room)) {
+                throw new DuplicateRoomException("a room with number " +room.getRoom() + " does exists") ;
+            }
+            record.remove(0);
+            record.forEach(personData -> {
+                List<String> token = new ArrayList<>(Arrays.stream(personData.trim().split(" ")).toList());
+                Person person = new Person();
+                this.setPerson(token, person);
+                if (!ldapUser.add(person.getLdapUser())) {
+                    throw new DuplicateResidentException(person.getLdapUser() + " does exists") ;
+                }
+                people.add(person);
+            });
+            room.setPeople(people);
+            roomRepository.save(room);
+
         });
-        return rooms;
+
     }
+
 
     public void setPerson(List<String> token, Person person) {
-        if (!token.isEmpty() && token.size() > 2) {
-            if (token.contains("Dr.")) {
-                person.setTitle(token.get(0));
-                token.remove("Dr.");
-            }
-            this.nameAdditions.forEach(na -> {
-                if (token.contains(na)) {
-                    person.setNameAddition(na);
-                    token.remove(na);
-                }
 
-            });
-
-            person.setFirstName(token.get(0));
-
-                person.setLastName(token.get(1));
-
-            token.forEach(s -> {
-                        if (s.matches("^\\(.*\\)$")) {
-                            person.setLdapUser(s.substring(1, s.length() - 1));
-                        }
-                    }
-            );
-        }
-
+        person.setTitle(token.contains( "Dr.") ? "Dr." : "");
+        token.remove("Dr.");
+        String ldapUser = token.get(token.size()-1);
+        person.setLdapUser(ldapUser.contains("(") ? ldapUser.substring(1, ldapUser.length() - 1) : "");
+        token.remove(ldapUser);
+        String nameAddition = token.stream().filter(this.nameAdditions::contains).findFirst().orElse(null);
+        person.setNameAddition(nameAddition != null ? nameAddition : "");
+        token.remove(nameAddition);
+        person.setLastName(token.get(token.size()-1));
+        token.remove(token.get(token.size()-1));
+        person.setFirstName(String.join(" ", token));
 
     }
-
-
 }
